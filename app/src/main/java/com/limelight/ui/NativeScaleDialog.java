@@ -131,12 +131,12 @@ public final class NativeScaleDialog {
         if (device == null || closed) return;
         ++choiceRevision;
         status.setText("正在应用 " + value + "%…");
-        if (queue.offer(value)) worker.execute(this::drain);
-    }
-    private void drain() {
-        Integer requested;
         final int version = revision;
         final String targetDevice = device;
+        if (queue.offer(value)) worker.execute(() -> drain(version, targetDevice));
+    }
+    private void drain(int version, String targetDevice) {
+        Integer requested;
         while (!closed && (requested = queue.next()) != null) {
             final int target = requested;
             final int choice = choiceRevision;
