@@ -42,6 +42,7 @@ import com.limelight.binding.input.driver.AbstractController;
 import com.limelight.binding.input.driver.DualSenseController;
 import com.limelight.binding.input.driver.UsbDriverListener;
 import com.limelight.binding.input.driver.UsbDriverService;
+import com.limelight.binding.input.driver.Xbox360Controller;
 import com.limelight.haptics.NoOpPcmHapticsBackend;
 import com.limelight.haptics.PcmHapticsBackend;
 import com.limelight.nvstream.NvConnection;
@@ -943,6 +944,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
     public static short getAttachedControllerMask(Context context) {
         int count = 0;
         short mask = 0;
+        boolean flydigiVader5ProCounted = false;
 
         // Count all input devices that are gamepads
         InputManager im = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
@@ -955,6 +957,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             if (hasJoystickAxes(dev)) {
                 LimeLog.info("Counting InputDevice: "+dev.getName());
                 mask |= 1 << count++;
+                if (Xbox360Controller.isFlydigiVader5ProReceiver(dev.getVendorId(), dev.getProductId())) {
+                    flydigiVader5ProCounted = true;
+                }
             }
         }
 
@@ -963,10 +968,12 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
             if (usbManager != null) {
                 for (UsbDevice dev : usbManager.getDeviceList().values()) {
-                    // We explicitly check not to claim devices that appear as InputDevices
-                    // otherwise we will double count them.
+                    // Count the composite Flydigi receiver even if an auxiliary HID interface
+                    // is recognized, but don't count it twice if Android exposed real joystick axes.
                     if (UsbDriverService.shouldClaimDevice(dev, false) &&
-                            !UsbDriverService.isRecognizedInputDevice(dev)) {
+                            (!UsbDriverService.isRecognizedInputDevice(dev) ||
+                                    (Xbox360Controller.isFlydigiVader5ProReceiver(dev) &&
+                                            !flydigiVader5ProCounted))) {
                         LimeLog.info("Counting UsbDevice: "+dev.getDeviceName());
                         mask |= 1 << count++;
                     }

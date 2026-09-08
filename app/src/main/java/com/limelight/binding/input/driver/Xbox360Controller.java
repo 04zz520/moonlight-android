@@ -12,6 +12,8 @@ import java.nio.ByteBuffer;
 public class Xbox360Controller extends AbstractXboxController {
     private static final int XB360_IFACE_SUBCLASS = 93;
     private static final int XB360_IFACE_PROTOCOL = 1; // Wired only
+    private static final int FLYDIGI_VENDOR_ID = 0x37d7;
+    private static final int FLYDIGI_VADER_5_PRO_PRODUCT_ID = 0x2401;
 
     private static final int[] SUPPORTED_VENDORS = {
             0x0079, // GPD Win 2
@@ -45,18 +47,37 @@ public class Xbox360Controller extends AbstractXboxController {
             0x11c0, // lead joy
     };
 
-    public static boolean canClaimDevice(UsbDevice device) {
+    public static boolean isFlydigiVader5ProReceiver(int vendorId, int productId) {
+        return vendorId == FLYDIGI_VENDOR_ID && productId == FLYDIGI_VADER_5_PRO_PRODUCT_ID;
+    }
+
+    public static boolean isFlydigiVader5ProReceiver(UsbDevice device) {
+        return isFlydigiVader5ProReceiver(device.getVendorId(), device.getProductId());
+    }
+
+    // Kept independent of Android objects so the VID/PID and interface guards can be tested.
+    static boolean canClaimDevice(int vendorId, int productId, int interfaceClass,
+                                  int interfaceSubclass, int interfaceProtocol) {
+        boolean supportedVendor = isFlydigiVader5ProReceiver(vendorId, productId);
         for (int supportedVid : SUPPORTED_VENDORS) {
-            if (device.getVendorId() == supportedVid &&
-                    device.getInterfaceCount() >= 1 &&
-                    device.getInterface(0).getInterfaceClass() == UsbConstants.USB_CLASS_VENDOR_SPEC &&
-                    device.getInterface(0).getInterfaceSubclass() == XB360_IFACE_SUBCLASS &&
-                    device.getInterface(0).getInterfaceProtocol() == XB360_IFACE_PROTOCOL) {
-                return true;
+            if (vendorId == supportedVid) {
+                supportedVendor = true;
+                break;
             }
         }
 
-        return false;
+        return supportedVendor &&
+                interfaceClass == UsbConstants.USB_CLASS_VENDOR_SPEC &&
+                interfaceSubclass == XB360_IFACE_SUBCLASS &&
+                interfaceProtocol == XB360_IFACE_PROTOCOL;
+    }
+
+    public static boolean canClaimDevice(UsbDevice device) {
+        return device.getInterfaceCount() >= 1 &&
+                canClaimDevice(device.getVendorId(), device.getProductId(),
+                        device.getInterface(0).getInterfaceClass(),
+                        device.getInterface(0).getInterfaceSubclass(),
+                        device.getInterface(0).getInterfaceProtocol());
     }
 
     public Xbox360Controller(UsbDevice device, UsbDeviceConnection connection, int deviceId, UsbDriverListener listener) {

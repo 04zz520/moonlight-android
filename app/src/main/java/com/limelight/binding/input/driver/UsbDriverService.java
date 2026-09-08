@@ -312,8 +312,13 @@ public class UsbDriverService extends Service implements UsbDriverListener {
 
     public static boolean shouldClaimDevice(UsbDevice device, boolean claimAllAvailable) {
         LimeLog.info("UsbDevice info: "+device.toString());
+        // An auxiliary HID interface on this composite receiver can make Android report
+        // an InputDevice even when its XInput gamepad interface has no usable kernel driver.
+        boolean preferFlydigiVader5ProUsbDriver =
+                Xbox360Controller.isFlydigiVader5ProReceiver(device);
         return ((!kernelSupportsXboxOne() || !isRecognizedInputDevice(device) || claimAllAvailable) && XboxOneController.canClaimDevice(device)) ||
-                ((!isRecognizedInputDevice(device) || claimAllAvailable) && Xbox360Controller.canClaimDevice(device)) ||
+                ((preferFlydigiVader5ProUsbDriver || !isRecognizedInputDevice(device) || claimAllAvailable) &&
+                        Xbox360Controller.canClaimDevice(device)) ||
                 // We must not call isRecognizedInputDevice() because wireless controllers don't share the same product ID as the dongle
                 ((!kernelSupportsXbox360W() || claimAllAvailable) && Xbox360WirelessDongle.canClaimDevice(device)) ||
                 ((!isRecognizedInputDevice(device) || claimAllAvailable) && ProCon2Controller.canClaimDevice(device)) ||
