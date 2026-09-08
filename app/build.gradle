@@ -14,8 +14,8 @@ android {
         minSdk 21
         targetSdk 34
 
-        versionName "26.09.06"
-        versionCode = 500
+        versionName providers.gradleProperty('customVersionName').getOrElse('26.09.06-dpi2-native')
+        versionCode = providers.gradleProperty('customVersionCode').getOrElse('502').toInteger()
         buildConfigField "int", "AXI_CODE", "25"
         buildConfigField "boolean", "HAS_KISHI_HAPTICS", gradle.ext.hasKishiHaptics.toString()
         buildConfigField "boolean", "HAS_STEREO3D_AI", gradle.ext.hasStereo3dAi.toString()
@@ -93,6 +93,19 @@ android {
         }
     }
 
+    signingConfigs {
+        flydigi {
+            // Never commit the persistent signing key. CI provides it from Secrets.
+            def signingPath = System.getenv('STREAM_SIGNING_STORE')
+            if (signingPath) {
+                storeFile file(signingPath)
+                storePassword System.getenv('STREAM_SIGNING_STORE_PASSWORD')
+                keyAlias System.getenv('STREAM_SIGNING_ALIAS')
+                keyPassword System.getenv('STREAM_SIGNING_KEY_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
@@ -146,6 +159,17 @@ android {
             else {
                 proguardFile 'proguard-no-obfuscation.pro'
             }
+        }
+    }
+
+    buildTypes {
+        flydigi {
+            initWith release
+            applicationIdSuffix ".flydigi"
+            resValue "string", "app_label", "月光·阿西西（飞智版）"
+            resValue "string", "app_label_root", "月光·阿西西（飞智 Root 版）"
+            if (System.getenv('STREAM_SIGNING_STORE')) signingConfig signingConfigs.flydigi
+            matchingFallbacks = ['release']
         }
     }
 

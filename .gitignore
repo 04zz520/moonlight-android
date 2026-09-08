@@ -52,3 +52,19 @@ app/.externalNativeBuild/
 # NDK stuff
 .cxx/
 /.codex/
+
+# Personal signing material, machine state and local output must never be published.
+/.private/
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key
+.env
+.env.*
+*.log
+*.bak
+/artifacts/
+/tools/
+/logs/
