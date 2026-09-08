@@ -1,4 +1,7 @@
 # 月光·阿西西
+
+> **04zz520 个人定制 Fork（非官方发行）**：黑武士 5 Pro 接收器兼容、Sunshine 原生 DPI 控制。维护分支为 `custom`，使用与构建方法见 [CUSTOM.md](CUSTOM.md)，可安装包见 [Releases](https://github.com/04zz520/moonlight-android/releases)。下方保留上游项目介绍和署名。
+
 ## 此项目实现对官方Moonlight安卓端功能修改<br>
 ### 如果你有更好的想法或者功能实现也欢迎提交PR<br>
 ### 如果喜欢数码和游戏，可以关注我的社交媒体账号
