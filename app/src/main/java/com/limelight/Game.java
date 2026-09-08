@@ -4516,6 +4516,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private com.limelight.ui.NativeScaleDialog nativeScaleDialog;
 
+    public void bindHostScalePage(android.view.View view) {
+        if (nativeScaleDialog != null) nativeScaleDialog.bind(view);
+    }
+
+    public void unbindHostScalePage(android.view.View view) {
+        if (nativeScaleDialog != null) nativeScaleDialog.unbind(view);
+    }
+
     public void showHostScaleDialog() {
         if (!connected || conn == null) return;
         if (nativeScaleDialog == null) {

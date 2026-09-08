@@ -4,12 +4,12 @@ on:
     inputs:
       version_code:
         description: Android version code (increase for future updates)
-        default: '502'
+        default: '503'
         required: true
         type: string
       version_name:
         description: Custom version label
-        default: '26.09.06-dpi2-native'
+        default: '26.09.09-dpi3-ui'
         required: true
         type: string
 permissions:

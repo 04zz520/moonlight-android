@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="300dp" android:layout_height="match_parent"
+    android:background="@color/gameMenuBgColor" android:orientation="vertical" android:padding="10dp">
+    <RelativeLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="4dp">
+        <ImageButton android:id="@+id/ibtn_back" android:layout_width="24dp" android:layout_height="24dp"
+            android:src="@drawable/ic_axi_back" android:background="@drawable/ic_game_menu_btn_side_selector"
+            android:contentDescription="@string/host_scale_back" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_centerInParent="true" android:text="@string/host_scale_title"
+            android:textColor="@android:color/white" android:textSize="13sp" />
+        <Button android:id="@+id/btn_right" android:layout_width="wrap_content" android:layout_height="24dp"
+            android:layout_alignParentRight="true" android:layout_marginRight="5dp"
+            android:background="@drawable/ic_game_menu_btn_side_selector" android:gravity="center"
+            android:text="@string/host_scale_refresh" android:textColor="@android:color/white" android:textSize="11sp" />
+    </RelativeLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:scrollbars="none">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="5dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="10dp" android:text="@string/host_scale_hint"
+                android:textColor="#CCCCCC" android:textSize="11sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:text="@string/host_scale_current"
+                android:textStyle="bold" android:textColor="@android:color/white" android:textSize="12sp" />
+            <TextView android:id="@+id/host_scale_actual" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" android:text="—" android:textColor="@android:color/white" android:textSize="24sp" />
+            <TextView android:id="@+id/host_scale_status" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" android:accessibilityLiveRegion="polite" android:text="@string/host_scale_loading"
+                android:textColor="#CCCCCC" android:textSize="11sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:text="@string/host_scale_options"
+                android:textStyle="bold" android:textColor="@android:color/white" android:textSize="12sp" />
+            <org.apmem.tools.layouts.FlowLayout android:id="@+id/host_scale_options"
+                android:layout_width="match_parent" android:layout_height="wrap_content" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:text="@string/host_scale_note"
+                android:textColor="#AAAAAA" android:textSize="10sp" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

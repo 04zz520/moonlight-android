@@ -55,20 +55,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <Button
-                android:id="@+id/bt_host_scale"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="电脑缩放 · 实时调节"
-                android:textColor="@android:color/white"
-                android:background="@drawable/ic_game_menu_btn_side_selector" />
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="5dp"
-                android:text="通过 Sunshine 原生接口调节 Windows 缩放，显示实际结果，无需快捷键、脚本或重连。"
-                android:textSize="11sp"
-                android:textColor="@android:color/white" />
             <LinearLayout
                 android:layout_marginTop="10dp"
                 android:layout_marginLeft="5dp"
@@ -257,6 +243,20 @@
                 android:gravity="left|center_vertical"
                 android:padding="10dp"
                 android:text="帧率"
+                android:textSize="11dp" />
+
+            <Button
+                android:id="@+id/bt_host_scale"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/ic_game_menu_btn_selector"
+                android:drawableLeft="@drawable/ic_host_scale"
+                android:drawableRight="@drawable/ic_axi_arrow"
+                android:drawablePadding="4dp"
+                android:gravity="left|center_vertical"
+                android:padding="10dp"
+                android:text="@string/host_scale_title"
                 android:textSize="11dp" />
 
             <LinearLayout

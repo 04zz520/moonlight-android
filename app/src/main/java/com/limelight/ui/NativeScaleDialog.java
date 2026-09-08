@@ -1,18 +1,22 @@
 package com.limelight.ui;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
+import android.graphics.Color;
+import android.view.Gravity;
+import android.view.View;
 import android.widget.TextView;
-import android.widget.Button;
+import android.widget.ToggleButton;
+import com.limelight.R;
 import com.limelight.nvstream.LatestScaleQueue;
+import com.limelight.ui.gamemenu.GameDisplayScaleFragment;
+import com.limelight.utils.UiHelper;
+import org.apmem.tools.layouts.FlowLayout;
 import org.json.JSONObject;
 import org.json.JSONArray;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Native Sunshine controls. One worker, actual DPI feedback, last choice wins. */
+/** Session-owned native scale controller; view uses the standard game-menu page. */
 public final class NativeScaleDialog {
     public interface Transport { JSONObject call(String device, Integer value) throws Exception; }
     private final Activity activity;
@@ -20,93 +24,150 @@ public final class NativeScaleDialog {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final LatestScaleQueue queue = new LatestScaleQueue();
     private volatile boolean closed;
-    private String device;
-    private AlertDialog dialog;
-    private TextView status;
-    private LinearLayout buttons;
-    private int revision;
+    private volatile String device;
+    private volatile int revision;
+    private volatile int choiceRevision;
+    private int confirmedScale = -1;
+    private View root;
+    private TextView status, actual;
+    private FlowLayout buttons;
+    private View refresh;
+    private GameDisplayScaleFragment page;
 
     public NativeScaleDialog(Activity activity, Transport transport) {
         this.activity = activity; this.transport = transport;
     }
-    private void ui(Runnable action) {
-        activity.runOnUiThread(() -> { if (!closed && !activity.isFinishing() && !activity.isDestroyed()) action.run(); });
+    private void ui(int version, Runnable action) {
+        activity.runOnUiThread(() -> {
+            if (!closed && root != null && version == revision &&
+                    !activity.isFinishing() && !activity.isDestroyed()) action.run();
+        });
     }
     public void show() {
-        if (closed || (dialog != null && dialog.isShowing())) return;
-        final int viewRevision = ++revision;
-        LinearLayout content = new LinearLayout(activity);
-        content.setOrientation(LinearLayout.VERTICAL);
-        int padding = (int)(16 * activity.getResources().getDisplayMetrics().density);
-        content.setPadding(padding,padding,padding,padding);
-        status = new TextView(activity);
-        status.setText("正在向 Sunshine 查询实际缩放…");
-        content.addView(status);
-        buttons = new LinearLayout(activity);
-        buttons.setOrientation(LinearLayout.VERTICAL);
-        content.addView(buttons);
-        ScrollView scroll = new ScrollView(activity); scroll.addView(content);
-        dialog = new AlertDialog.Builder(activity).setTitle("电脑缩放 · Sunshine 原生控制")
-                .setView(scroll).setNegativeButton("关闭", null).create();
-        dialog.show();
+        if (closed || page != null) return;
+        page = new GameDisplayScaleFragment();
+        page.setWidth(UiHelper.dpToPx(activity, 364));
+        page.show(activity.getFragmentManager());
+    }
+    public void bind(View view) {
+        root = view;
+        status = view.findViewById(R.id.host_scale_status);
+        actual = view.findViewById(R.id.host_scale_actual);
+        buttons = view.findViewById(R.id.host_scale_options);
+        refresh = view.findViewById(R.id.btn_right);
+        refresh.setOnClickListener(v -> query());
+        query();
+    }
+    public void unbind(View view) {
+        if (root != view) return;
+        ++revision;
+        root = null; status = null; actual = null; buttons = null; refresh = null; page = null;
+    }
+    private static void validate(JSONObject info) throws Exception {
+        if (!info.optBoolean("is_primary") ||
+                !info.optString("friendly_name").toLowerCase(java.util.Locale.ROOT).contains("zako"))
+            throw new Exception("当前主屏不是 Zako 串流屏，已停止调节以保护本地桌面");
+        if (info.optString("device_id").isEmpty() || !info.optBoolean("scale_set_supported"))
+            throw new Exception("目标屏不支持实时缩放");
+    }
+    private void query() {
+        if (closed || root == null) return;
+        final int version = ++revision;
+        refresh.setEnabled(false);
+        buttons.removeAllViews();
+        actual.setText("—");
+        status.setText(R.string.host_scale_loading);
         worker.execute(() -> {
             try {
                 JSONObject info = transport.call(null, null);
-                String id = info.optString("device_id");
-                // This setup streams the primary Zako virtual display; never fall back to a physical screen.
-                String friendly = info.optString("friendly_name");
-                if (!info.optBoolean("is_primary") || !friendly.toLowerCase(java.util.Locale.ROOT).contains("zako"))
-                    throw new Exception("当前主屏不是 Zako 串流屏，已停止调节以保护本地桌面");
-                if (id.isEmpty() || !info.optBoolean("scale_set_supported")) throw new Exception("目标屏不支持实时缩放");
+                validate(info);
                 JSONArray options = info.getJSONArray("supported_scale_percents");
-                ui(() -> {
-                    if (viewRevision != revision) return;
-                    device = id;
-                    status.setText("实际缩放：" + info.optInt("current_scale_percent") + "%\n连续选择会保留最后一次；无需重连。");
-                    for (int i=0; i<options.length(); i++) {
+                ui(version, () -> {
+                    device = info.optString("device_id");
+                    for (int i = 0; i < options.length(); i++) {
                         int value = options.optInt(i);
                         if (value < 100 || value > 500) continue;
-                        Button button = new Button(activity); button.setText(value + "%");
-                        button.setOnClickListener(v -> choose(value));
-                        buttons.addView(button);
+                        ToggleButton button = new ToggleButton(activity);
+                        button.setTextOn(value + "%"); button.setTextOff(value + "%");
+                        button.setText(value + "%"); button.setTag(value);
+                        button.setTextColor(Color.WHITE); button.setTextSize(12);
+                        button.setGravity(Gravity.CENTER);
+                        button.setBackgroundResource(R.drawable.ic_game_menu_btn_selector);
+                        button.setBackgroundTintList(null);
+                        FlowLayout.LayoutParams lp = new FlowLayout.LayoutParams(dp(72), dp(40));
+                        lp.setMargins(0, dp(6), dp(6), 0);
+                        buttons.addView(button, lp);
+                        button.setOnClickListener(v -> {
+                            // Only host confirmation selects a chip, never the local click itself.
+                            displayActual(confirmedScale);
+                            choose(value);
+                        });
                     }
+                    displayActual(info.optInt("current_scale_percent", -1));
+                    status.setText("点击比例立即应用");
+                    refresh.setEnabled(true);
                 });
-            } catch (Exception e) { ui(() -> { if(viewRevision == revision) status.setText("无法读取：" + message(e)); }); }
+            } catch (Exception e) {
+                ui(version, () -> {
+                    status.setText("无法读取：" + message(e) + "\n请检查连接后点击刷新。");
+                    refresh.setEnabled(true);
+                });
+            }
         });
+    }
+    private int dp(int value) { return UiHelper.dpToPx(activity, value); }
+    private void displayActual(int value) {
+        confirmedScale = value;
+        actual.setText(value > 0 ? value + "%" : "—");
+        for (int i = 0; i < buttons.getChildCount(); i++) {
+            ToggleButton button = (ToggleButton) buttons.getChildAt(i);
+            button.setChecked(((Integer)button.getTag()) == value);
+        }
     }
     private static String message(Exception e) {
         return e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
     }
     private void choose(int value) {
         if (device == null || closed) return;
-        status.setText("正在申请 " + value + "%…");
+        ++choiceRevision;
+        status.setText("正在应用 " + value + "%…");
         if (queue.offer(value)) worker.execute(this::drain);
     }
     private void drain() {
         Integer requested;
+        final int version = revision;
+        final String targetDevice = device;
         while (!closed && (requested = queue.next()) != null) {
             final int target = requested;
-            final String targetDevice = device;
+            final int choice = choiceRevision;
             try {
-                // Query the pinned device before each write; never reuse a remembered DPI as actual state.
                 JSONObject before = transport.call(targetDevice, null);
-                if (!before.optBoolean("is_primary")) throw new Exception("目标屏已不是串流主屏，未修改缩放");
+                validate(before);
+                if (!targetDevice.equals(before.optString("device_id")))
+                    throw new Exception("串流显示器已改变，请刷新后重试");
                 JSONObject result = before.optInt("current_scale_percent") == target ? before : transport.call(targetDevice, target);
-                int actual = result.optInt("current_scale_percent", -1);
-                if (actual != target) {
-                    actual = transport.call(targetDevice, null).optInt("current_scale_percent", -1);
-                }
-                final int confirmed = actual;
-                ui(() -> status.setText(confirmed == target ? "已确认：电脑实际缩放 " + confirmed + "%" :
-                        "请求 " + target + "% 尚未确认生效；实际 " + confirmed + "%（可重新查询）"));
+                int value = result.optInt("current_scale_percent", -1);
+                if (value != target) value = transport.call(targetDevice, null).optInt("current_scale_percent", -1);
+                final int confirmed = value;
+                ui(version, () -> {
+                    displayActual(confirmed);
+                    if (choice == choiceRevision)
+                        status.setText(confirmed == target ? "已应用" : "尚未确认生效，请点击刷新核对。");
+                });
             } catch (Exception e) {
-                // A timed-out write may have applied. Do not automatically replay it.
-                ui(() -> status.setText("未能确认调节结果：" + message(e) + "\n关闭后重新打开可查询实际值。"));
+                // A timed-out write may have applied. Never automatically replay it.
+                ui(version, () -> {
+                    if (choice == choiceRevision) {
+                        displayActual(-1);
+                        status.setText("未能确认：" + message(e) + "\n请点击刷新核对实际比例。");
+                    }
+                });
             }
         }
     }
     public void close() {
         closed = true; queue.close(); worker.shutdownNow();
-        if (dialog != null) dialog.dismiss();
+        if (page != null) page.dismissAllowingStateLoss();
+        root = null;
     }
 }
