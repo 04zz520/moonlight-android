@@ -1,0 +1,70 @@
+name: Build custom Moonlight (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: Android version code (increase for future updates)
+        default: '502'
+        required: true
+        type: string
+      version_name:
+        description: Custom version label
+        default: '26.09.06-dpi2-native'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: custom-android-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/custom'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android build dependencies
+        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'ndk;27.0.12077973'
+      - name: Validate version inputs
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          [[ "$VERSION_CODE" =~ ^[0-9]{1,9}$ ]]
+          [[ "$VERSION_NAME" =~ ^[a-zA-Z0-9._-]{1,80}$ ]]
+      - name: Restore private signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.STREAM_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64" || { echo 'Configure STREAM_KEYSTORE_BASE64 in repository Secrets first'; exit 1; }
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/stream-signing.keystore"
+      - name: Test and build signed APK
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          STREAM_SIGNING_STORE: ${{ runner.temp }}/stream-signing.keystore
+          STREAM_SIGNING_STORE_PASSWORD: ${{ secrets.STREAM_SIGNING_STORE_PASSWORD }}
+          STREAM_SIGNING_ALIAS: ${{ secrets.STREAM_SIGNING_ALIAS }}
+          STREAM_SIGNING_KEY_PASSWORD: ${{ secrets.STREAM_SIGNING_KEY_PASSWORD }}
+        run: |
+          bash ./gradlew --no-daemon --max-workers=2 -PincludeKishiHaptics=false -PincludeStereo3dAi=false \
+            "-PcustomVersionCode=$VERSION_CODE" "-PcustomVersionName=$VERSION_NAME" \
+            testNonRootFlydigiUnitTest assembleNonRootFlydigi
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs app/build/outputs/apk/nonRoot/flydigi/app-nonRoot-flydigi.apk
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: moonlight-flydigi-${{ inputs.version_code }}
+          path: app/build/outputs/apk/nonRoot/flydigi/app-nonRoot-flydigi.apk
+          if-no-files-found: error
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/stream-signing.keystore"
