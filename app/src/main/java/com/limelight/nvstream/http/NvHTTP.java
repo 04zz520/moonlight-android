@@ -64,6 +64,63 @@ import okhttp3.ResponseBody;
 
 
 public class NvHTTP {
+    private boolean legacyScaleMapping;
+    private boolean scaleMappingKnown;
+    // Native Foundation Sunshine API: always mTLS, never fall back to HTTP.
+    public org.json.JSONObject displayScale(String deviceId, Integer percent) throws IOException {
+        if (serverCert == null) throw new IOException("尚未配对，不能调节电脑缩放");
+        try {
+            HttpUrl.Builder url = getHttpsUrl(true).newBuilder()
+                    .addPathSegment(percent == null ? "display-scale-options" : "display-scale");
+            Request.Builder request = new Request.Builder();
+            if (percent == null) {
+                if (deviceId != null) url.addQueryParameter("device_id", deviceId);
+                request.get();
+            } else {
+                if (deviceId == null || deviceId.isEmpty()) throw new IOException("未锁定目标显示器");
+                org.json.JSONObject payload = new org.json.JSONObject();
+                payload.put("device_id", deviceId);
+                if (!scaleMappingKnown) throw new IOException("必须先查询显示器的缩放能力");
+                payload.put("scale_percent", ScalePercentMapping.encode(percent, legacyScaleMapping));
+                request.post(okhttp3.RequestBody.create(okhttp3.MediaType.parse("application/json"), payload.toString()));
+            }
+            request.url(url.build());
+            OkHttpClient client = performAndroidTlsHack(httpClientLongConnectTimeout).newBuilder()
+                    .retryOnConnectionFailure(false).build();
+            try (Response response = client.newCall(request.build()).execute()) {
+                if (response.body() == null) throw new IOException("Sunshine 返回空响应");
+                String body = response.body().string();
+                if (!body.trim().startsWith("{")) {
+                    throw new IOException("Sunshine 未提供原生缩放接口（HTTP " + response.code() + "）");
+                }
+                org.json.JSONObject result = new org.json.JSONObject(body);
+                if (!response.isSuccessful() || !result.optBoolean("success", false)) {
+                    throw new IOException("Sunshine：" + result.optString("error_code", "request_failed") + " / " + result.optString("status_message"));
+                }
+                org.json.JSONArray scales = result.optJSONArray("supported_scale_percents");
+                if (percent == null) {
+                    if (scales == null || scales.length() == 0) throw new IOException("Sunshine 未返回有效缩放档位");
+                    int[] raw = new int[scales.length()];
+                    for (int i=0;i<raw.length;i++) raw[i]=scales.getInt(i);
+                    legacyScaleMapping = ScalePercentMapping.needsCompatibility(raw);
+                    scaleMappingKnown = true;
+                }
+                for (String key : new String[]{"current_scale_percent","recommended_scale_percent","previous_scale_percent"}) {
+                    if (result.has(key) && !result.isNull(key)) result.put(key, ScalePercentMapping.decode(result.getInt(key), legacyScaleMapping));
+                }
+                if (scales != null) {
+                    org.json.JSONArray corrected = new org.json.JSONArray();
+                    for (int i=0;i<scales.length();i++) corrected.put(ScalePercentMapping.decode(scales.getInt(i), legacyScaleMapping));
+                    result.put("supported_scale_percents", corrected);
+                }
+                result.put("legacy_scale_mapping_corrected", legacyScaleMapping);
+                return result;
+            }
+        } catch (org.json.JSONException | IllegalArgumentException e) {
+            throw new IOException("Sunshine 缩放响应格式不正确", e);
+        }
+    }
+
     private String uniqueId;
     private PairingManager pm;
 

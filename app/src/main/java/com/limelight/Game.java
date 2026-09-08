@@ -2153,6 +2153,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        if (nativeScaleDialog != null) nativeScaleDialog.close();
         logSessionInfo("LIFECYCLE", "串流页面正在销毁");
         backgroundReconnectHandler.removeCallbacksAndMessages(null);
         sessionTelemetryHandler.removeCallbacksAndMessages(null);
@@ -4511,6 +4512,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     public void mouseHScroll(byte amount) {
         conn.sendMouseHScroll(amount);
+    }
+
+    private com.limelight.ui.NativeScaleDialog nativeScaleDialog;
+
+    public void showHostScaleDialog() {
+        if (!connected || conn == null) return;
+        if (nativeScaleDialog == null) {
+            final NvConnection scaleConnection = conn;
+            nativeScaleDialog = new com.limelight.ui.NativeScaleDialog(this, (device, value) -> {
+                if (!connected || conn != scaleConnection) throw new java.io.IOException("串流已断开，未发送新的缩放指令");
+                return scaleConnection.displayScale(device, value);
+            });
+        }
+        nativeScaleDialog.show();
     }
 
     public void mouseHighResScroll(boolean up){

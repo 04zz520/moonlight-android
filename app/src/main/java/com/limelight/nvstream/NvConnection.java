@@ -50,6 +50,14 @@ public class NvConnection {
     private final Context appContext;
     private MicUplinkConnection micUplinkConnection;
     private String lastMicUplinkMessage;
+    private NvHTTP scaleHttp;
+    private volatile boolean scaleClosed;
+
+    public synchronized org.json.JSONObject displayScale(String deviceId, Integer percent) throws IOException {
+        if (scaleClosed) throw new IOException("串流已结束");
+        if (scaleHttp == null) scaleHttp = new NvHTTP(context.serverAddress, context.httpsPort, uniqueId, context.serverCert, cryptoProvider);
+        return scaleHttp.displayScale(deviceId, percent);
+    }
 
     public NvConnection(Context appContext, ComputerDetails.AddressTuple host, int httpsPort, String uniqueId, StreamConfiguration config, LimelightCryptoProvider cryptoProvider, X509Certificate serverCert)
     {
@@ -89,6 +97,7 @@ public class NvConnection {
     }
 
     public void stop() {
+        scaleClosed = true;
         if (micUplinkConnection != null) {
             micUplinkConnection.stop();
             micUplinkConnection = null;

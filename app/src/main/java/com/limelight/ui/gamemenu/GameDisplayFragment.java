@@ -139,6 +139,10 @@ public class GameDisplayFragment extends BaseGameMenuDialog implements View.OnCl
     @Override
     public void bindView(View v) {
         super.bindView(v);
+        v.findViewById(R.id.bt_host_scale).setOnClickListener(button -> {
+            if (getActivity() instanceof com.limelight.Game)
+                ((com.limelight.Game)getActivity()).showHostScaleDialog();
+        });
         ibtn_back=v.findViewById(R.id.ibtn_back);
         tx_title=v.findViewById(R.id.tx_title);
 
