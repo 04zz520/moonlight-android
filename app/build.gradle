@@ -14,8 +14,8 @@ android {
         minSdk 21
         targetSdk 34
 
-        versionName providers.gradleProperty('customVersionName').getOrElse('26.09.09-dpi4-async-exit')
-        versionCode = providers.gradleProperty('customVersionCode').getOrElse('504').toInteger()
+        versionName providers.gradleProperty('customVersionName').getOrElse('26.09.09-dpi4-async-exit-6s')
+        versionCode = providers.gradleProperty('customVersionCode').getOrElse('505').toInteger()
         buildConfigField "int", "AXI_CODE", "25"
         buildConfigField "boolean", "HAS_KISHI_HAPTICS", gradle.ext.hasKishiHaptics.toString()
         buildConfigField "boolean", "HAS_STEREO3D_AI", gradle.ext.hasStereo3dAi.toString()

@@ -905,7 +905,7 @@ public class NvHTTP {
         String xmlStr = openHttpConnectionToString(bounded, endpoint, "cancel");
         if (getXmlString(xmlStr, "cancel", true).equals("0")) return false;
 
-        long budget = Math.max(1, 15000 - (android.os.SystemClock.elapsedRealtime() - started));
+        long budget = Math.max(1, 6000 - (android.os.SystemClock.elapsedRealtime() - started));
         QuitConfirmation.await(remaining -> {
             OkHttpClient probe = bounded.newBuilder()
                     .callTimeout(Math.max(1, Math.min(3000, remaining)), TimeUnit.MILLISECONDS).build();
