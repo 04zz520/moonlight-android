@@ -4,12 +4,12 @@ on:
     inputs:
       version_code:
         description: Android version code (increase for future updates)
-        default: '503'
+        default: '504'
         required: true
         type: string
       version_name:
         description: Custom version label
-        default: '26.09.09-dpi3-ui'
+        default: '26.09.09-dpi4-async-exit'
         required: true
         type: string
 permissions:

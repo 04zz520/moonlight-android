@@ -444,6 +444,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     @Override
     protected void onResume() {
         super.onResume();
+        quitStatusHandler.post(quitStatusUpdate);
 
         // Display a decoder crash notification if we've returned after a crash
         UiHelper.showDecoderCrashDialog(this);
@@ -452,9 +453,22 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         startComputerUpdates();
     }
 
+    private final android.os.Handler quitStatusHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable quitStatusUpdate = new Runnable() {
+        @Override public void run() {
+            boolean pending = computer != null && computer.activeAddress != null &&
+                    com.limelight.nvstream.QuitTracker.isPending(
+                            ServerHelper.quitHostKey(computer.serverCert, computer.activeAddress));
+            View banner = findViewById(R.id.host_quit_status);
+            if (banner != null) banner.setVisibility(pending ? View.VISIBLE : View.GONE);
+            quitStatusHandler.postDelayed(this, 300);
+        }
+    };
+
     @Override
     protected void onPause() {
         super.onPause();
+        quitStatusHandler.removeCallbacks(quitStatusUpdate);
 
         inForeground = false;
         stopComputerUpdates();

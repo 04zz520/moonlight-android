@@ -2354,12 +2354,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             displayedFailureDialog = true;
             stopConnection();
             if(isQuitSteamingFlag){
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        quitSteaming();
-                    }
-                },200); // 延时100毫秒
+                // Register cleanup before the app list resumes; all HTTP runs in the background.
+                quitSteaming();
             }
             if (prefConfig.enableLatencyToast) {
                 int averageEndToEndLat = decoderRenderer.getAverageEndToEndLatency();

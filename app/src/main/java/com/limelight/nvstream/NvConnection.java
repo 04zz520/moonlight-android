@@ -500,6 +500,17 @@ public class NvConnection {
                 context.connListener.stageStarting(appName);
 
                 try {
+                    String quitKey = com.limelight.utils.ServerHelper.quitHostKey(context.serverCert, context.serverAddress);
+                    boolean waitingForQuit = QuitTracker.isPending(quitKey);
+                    if (waitingForQuit) {
+                        context.connListener.stageStarting("正在结束上次串流…");
+                    }
+                    // Always consume a just-completed ticket too, so a racing failure isn't lost.
+                    QuitTracker.await(quitKey);
+                    if (waitingForQuit) {
+                        if (scaleClosed) return;
+                        context.connListener.stageStarting(appName);
+                    }
                     if (!startApp()) {
                         context.connListener.stageFailed(appName, 0, 0);
                         return;

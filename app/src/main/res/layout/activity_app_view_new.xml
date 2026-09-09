@@ -53,6 +53,22 @@
             android:layout_marginRight="10dp"
             android:layout_width="36dp"
             android:layout_height="36dp"/>
+
+        <TextView
+            android:id="@+id/host_quit_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/appListText"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp"
+            android:layout_marginBottom="10dp"
+            android:padding="10dp"
+            android:background="@drawable/ic_game_menu_btn_normal"
+            android:text="正在结束上次串流… 你可以继续浏览，重新连接将等待主机就绪。"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:accessibilityLiveRegion="polite"
+            android:visibility="gone" />
     </RelativeLayout>
 
 

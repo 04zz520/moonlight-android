@@ -23,6 +23,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
 
 public class ServerHelper {
     public static final String CONNECTION_TEST_SERVER = "android.conntest.moonlight-stream.org";
@@ -157,105 +158,67 @@ public class ServerHelper {
         }, "NetworkTest").start();
     }
 
+    public static String quitHostKey(X509Certificate cert, ComputerDetails.AddressTuple address) {
+        // Certificate identity survives switching between LAN and Tailscale addresses.
+        return cert != null ? java.util.Arrays.toString(cert.getPublicKey().getEncoded())
+                : address.address + ":" + address.port;
+    }
+
+    private interface QuitTransport { NvHTTP create() throws IOException; }
+
+    private static void quitInBackground(Activity parent, String key, QuitTransport transport,
+                                         Runnable onComplete) {
+        android.content.Context app = parent.getApplicationContext();
+        com.limelight.nvstream.QuitTracker.Ticket ticket = com.limelight.nvstream.QuitTracker.begin(key);
+        if (ticket == null) {
+            if (onComplete != null) onComplete.run();
+            Toast.makeText(app, "正在结束上次串流，请稍候…", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new Thread(() -> {
+            String failure = null;
+            try {
+                if (!transport.create().quitApp()) failure = "主机拒绝退出，请在电脑上检查当前会话。";
+            } catch (IOException | XmlPullParserException e) {
+                failure = "未能确认串流退出：" + e.getMessage();
+            } finally {
+                com.limelight.nvstream.QuitTracker.finish(key, ticket, failure);
+                if (onComplete != null) onComplete.run();
+            }
+            if (failure != null) {
+                final String message = failure;
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                        Toast.makeText(app, message, Toast.LENGTH_LONG).show());
+            }
+        }, "HostQuitConfirmation").start();
+    }
+
     public static void doQuit(final Activity parent,
                               final ComputerDetails computer,
                               final NvApp app,
                               final ComputerManagerService.ComputerManagerBinder managerBinder,
                               final Runnable onComplete) {
-        Toast.makeText(parent, parent.getResources().getString(R.string.applist_quit_app) + " " + app.getAppName() + "...", Toast.LENGTH_SHORT).show();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                NvHTTP httpConn;
-                String message;
-                try {
-                    httpConn = new NvHTTP(ServerHelper.getCurrentAddressFromComputer(computer), computer.httpsPort,
-                            managerBinder.getUniqueId(), computer.serverCert, PlatformBinding.getCryptoProvider(parent));
-                    if (httpConn.quitApp()) {
-                        message = parent.getResources().getString(R.string.applist_quit_success) + " " + app.getAppName();
-                    } else {
-                        message = parent.getResources().getString(R.string.applist_quit_fail) + " " + app.getAppName();
-                    }
-                } catch (HostHttpResponseException e) {
-                    if (e.getErrorCode() == 599) {
-                        message = "This session wasn't started by this device," +
-                                " so it cannot be quit. End streaming on the original " +
-                                "device or the PC itself. (Error code: "+e.getErrorCode()+")";
-                    }
-                    else {
-                        message = e.getMessage();
-                    }
-                } catch (UnknownHostException e) {
-                    message = parent.getResources().getString(R.string.error_unknown_host);
-                } catch (FileNotFoundException e) {
-                    message = parent.getResources().getString(R.string.error_404);
-                } catch (IOException | XmlPullParserException e) {
-                    message = e.getMessage();
-                    e.printStackTrace();
-                } finally {
-                    if (onComplete != null) {
-                        onComplete.run();
-                    }
-                }
-
-                final String toastMessage = message;
-                parent.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(parent, toastMessage, Toast.LENGTH_LONG).show();
-                    }
-                });
-            }
-        }).start();
+        if (computer.activeAddress == null) {
+            Toast.makeText(parent, R.string.pair_pc_offline, Toast.LENGTH_SHORT).show();
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+        final ComputerDetails.AddressTuple address = computer.activeAddress;
+        final int port = computer.httpsPort;
+        final X509Certificate cert = computer.serverCert;
+        final String uniqueId = managerBinder.getUniqueId();
+        final com.limelight.nvstream.http.LimelightCryptoProvider crypto =
+                PlatformBinding.getCryptoProvider(parent.getApplicationContext());
+        quitInBackground(parent, quitHostKey(cert, address),
+                () -> new NvHTTP(address, port, uniqueId, cert, crypto), onComplete);
     }
 
-    public static void doQuit(final Activity parent,
-                              final StreamReqBean reqBean,
+    public static void doQuit(final Activity parent, final StreamReqBean reqBean,
                               final Runnable onComplete) {
-        Toast.makeText(parent, parent.getResources().getString(R.string.applist_quit_app) + " " + reqBean.getAppName() + "...", Toast.LENGTH_SHORT).show();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                NvHTTP httpConn;
-                String message;
-                try {
-                    httpConn = new NvHTTP(reqBean.getActiveAddress(), reqBean.getHttpsPort(),
-                            reqBean.getUniqueId(), reqBean.getServerCert(), PlatformBinding.getCryptoProvider(parent));
-                    if (httpConn.quitApp()) {
-                        message = parent.getResources().getString(R.string.applist_quit_success) + " " + reqBean.getAppName();
-                    } else {
-                        message = parent.getResources().getString(R.string.applist_quit_fail) + " " + reqBean.getAppName();
-                    }
-                } catch (HostHttpResponseException e) {
-                    if (e.getErrorCode() == 599) {
-                        message = "This session wasn't started by this device," +
-                                " so it cannot be quit. End streaming on the original " +
-                                "device or the PC itself. (Error code: "+e.getErrorCode()+")";
-                    }
-                    else {
-                        message = e.getMessage();
-                    }
-                } catch (UnknownHostException e) {
-                    message = parent.getResources().getString(R.string.error_unknown_host);
-                } catch (FileNotFoundException e) {
-                    message = parent.getResources().getString(R.string.error_404);
-                } catch (IOException | XmlPullParserException e) {
-                    message = e.getMessage();
-                    e.printStackTrace();
-                } finally {
-                    if (onComplete != null) {
-                        onComplete.run();
-                    }
-                }
-
-                final String toastMessage = message;
-                parent.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(parent, toastMessage, Toast.LENGTH_LONG).show();
-                    }
-                });
-            }
-        }).start();
+        final com.limelight.nvstream.http.LimelightCryptoProvider crypto =
+                PlatformBinding.getCryptoProvider(parent.getApplicationContext());
+        quitInBackground(parent, quitHostKey(reqBean.getServerCert(), reqBean.getActiveAddress()),
+                () -> new NvHTTP(reqBean.getActiveAddress(), reqBean.getHttpsPort(),
+                        reqBean.getUniqueId(), reqBean.getServerCert(), crypto), onComplete);
     }
 }

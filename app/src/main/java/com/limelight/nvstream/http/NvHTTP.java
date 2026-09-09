@@ -897,19 +897,28 @@ public class NvHTTP {
     }
     
     public boolean quitApp() throws IOException, XmlPullParserException {
-        String xmlStr = openHttpConnectionToString(httpClientLongConnectNoReadTimeout, getHttpsUrl(true), "cancel");
-        if (getXmlString(xmlStr, "cancel", true).equals("0")) {
-            return false;
-        }
+        // One cancel only. Include DNS/connect/read in a finite call timeout.
+        long started = android.os.SystemClock.elapsedRealtime();
+        OkHttpClient bounded = httpClientLongConnectTimeout.newBuilder()
+                .callTimeout(5, TimeUnit.SECONDS).retryOnConnectionFailure(false).build();
+        HttpUrl endpoint = getHttpsUrl(true);
+        String xmlStr = openHttpConnectionToString(bounded, endpoint, "cancel");
+        if (getXmlString(xmlStr, "cancel", true).equals("0")) return false;
 
-        // Newer GFE versions will just return success even if quitting fails
-        // if we're not the original requestor.
-        if (getCurrentGame(getServerInfo(true)) != 0) {
-            // Generate a synthetic GfeResponseException letting the caller know
-            // that they can't kill someone else's stream.
-            throw new HostHttpResponseException(599, "");
-        }
-
+        long budget = Math.max(1, 15000 - (android.os.SystemClock.elapsedRealtime() - started));
+        QuitConfirmation.await(remaining -> {
+            OkHttpClient probe = bounded.newBuilder()
+                    .callTimeout(Math.max(1, Math.min(3000, remaining)), TimeUnit.MILLISECONDS).build();
+            String info = openHttpConnectionToString(probe, endpoint, "serverinfo");
+            try {
+                return getCurrentGame(info) == 0;
+            } catch (XmlPullParserException | RuntimeException e) {
+                throw new IOException("主机返回的退出状态格式不正确", e);
+            }
+        }, new QuitConfirmation.Clock() {
+            public long now() { return android.os.SystemClock.elapsedRealtime(); }
+            public void sleep(long ms) throws InterruptedException { Thread.sleep(ms); }
+        }, budget);
         return true;
     }
 
